@@ -82,8 +82,8 @@ jetbrains-kotlin-jvm = "1.8.20"
 
 [libraries]
 
-gragle-android = { group = "com.android.tools.build", name = "gradle", version.ref = "gradle-android-plugin" }
-gragle-wire = { group = "com.squareup.wire", name = "wire-gradle-plugin", version.ref = "wire" }
+gradle-android = { group = "com.android.tools.build", name = "gradle", version.ref = "gradle-android-plugin" }
+gradle-wire = { group = "com.squareup.wire", name = "wire-gradle-plugin", version.ref = "wire" }
 
 kotlinx-stdlib-core = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlin-plugin" }
 kotlinx-stdlib-common = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib-common", version.ref = "kotlin-plugin" }

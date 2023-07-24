@@ -1,13 +1,20 @@
 @file:Suppress("UNUSED_VARIABLE")
 
+import org.jetbrains.kotlin.gradle.dsl.JsModuleKind.MODULE_COMMONJS
+import org.jetbrains.kotlin.gradle.dsl.JsModuleKind.MODULE_UMD
+import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
+
 @Suppress("DSL_SCOPE_VIOLATION")  // TODO: Remove once KTIJ-19369 is fixed
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.cocoapods)
+    id("maven-publish")
 }
 
 val javaVersionValue = rootProject.extra["javaVersion"] as JavaVersion
+val moduleNameValue = rootProject.extra["moduleName"] as String
+val outputJsFilenameValue = rootProject.extra["outputJsFilename"] as String
 
 @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
 kotlin {
@@ -27,6 +34,101 @@ kotlin {
         }
     }
 
+    js(IR) {
+        moduleName = moduleNameValue
+
+        compilations["main"].packageJson {
+            customField("hello", mapOf("one" to 1, "two" to 2))
+        }
+
+        generateTypeScriptDefinitions()
+
+        browser {
+            commonWebpackConfig {
+                cssSupport {
+                    enabled.set(true)
+                }
+            }
+
+            webpackTask {
+                outputFileName = outputJsFilenameValue
+                output.libraryTarget = "commonjs2"
+            }
+
+            testTask {
+                enabled = false
+                useKarma {
+                    useIe()
+                    useSafari()
+                    useFirefox()
+                    useChrome()
+                    useChromeCanary()
+                    useChromeHeadless()
+                    usePhantomJS()
+                    useOpera()
+                }
+            }
+        }
+
+        nodejs {
+            useCommonJs()
+        }
+    }
+
+    jvm {
+        compilations.all {
+            kotlinOptions {
+                jvmTarget = javaVersionValue.majorVersion
+            }
+        }
+    }
+
+    @OptIn(ExperimentalWasmDsl::class)
+    wasm {
+        d8()
+    }
+
+    // Windows cross-compiling target
+    mingwX64 {
+        binaries {
+            sharedLib {
+                baseName = "lib$moduleNameValue"
+            }
+        }
+    }
+
+    linuxX64 {
+        binaries {
+            sharedLib {
+                baseName = moduleNameValue
+            }
+        }
+    }
+
+    linuxArm64 {
+        binaries {
+            sharedLib {
+                baseName = moduleNameValue
+            }
+        }
+    }
+
+    macosX64 {
+        binaries {
+            sharedLib {
+                baseName = moduleNameValue
+            }
+        }
+    }
+
+    macosArm64 {
+        binaries {
+            sharedLib {
+                baseName = moduleNameValue
+            }
+        }
+    }
+
     iosX64()
     iosArm64()
     iosSimulatorArm64()
@@ -38,6 +140,47 @@ kotlin {
     tvosX64()
     tvosArm64()
     tvosSimulatorArm64()
+
+    targets {
+        js {
+            browser {
+                compilations.all {
+                    compilerOptions.configure {
+                        moduleKind.set(MODULE_UMD)
+                    }
+                }
+            }
+
+            nodejs {
+                compilations.all {
+                    compilerOptions.configure {
+                        moduleKind.set(MODULE_COMMONJS)
+                    }
+                }
+            }
+
+            compilations.all {
+                compilerOptions.configure {
+                    sourceMap.set(true)
+                }
+            }
+
+            binaries.executable()
+        }
+    }
+
+    val publicationsFromMainHost = listOf(jvm(), js(IR)).map { it.name } + "kotlinMultiplatform"
+
+    publishing {
+        publications {
+            matching { it.name in publicationsFromMainHost }.all {
+                val targetPublication = this@all
+                tasks.withType<AbstractPublishToMaven>()
+                    .matching { it.publication == targetPublication }
+                    .configureEach { onlyIf { findProperty("isMainHost") == "true" } }
+            }
+        }
+    }
 
     cocoapods {
         summary = "Some description for the Shared Module"
@@ -57,9 +200,15 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation(libs.kotlinx.coroutines.core)
-                implementation(libs.kotlinx.datetime.core)
 
                 implementation(kotlin("reflect"))
+            }
+        }
+
+        val jsMain by getting {
+            dependsOn(commonMain)
+
+            dependencies {
             }
         }
 
@@ -75,6 +224,14 @@ kotlin {
             }
         }
 
+        val jsTest by getting {
+            dependsOn(jsMain)
+            dependsOn(commonTest)
+
+            dependencies {
+            }
+        }
+
         val androidUnitTest by getting {
             dependsOn(androidMain)
             dependsOn(commonTest)
@@ -85,13 +242,134 @@ kotlin {
             dependsOn(commonTest)
         }
 
+        val linuxX64Main by getting {
+            dependencies {
+            }
+        }
+
+        val linuxArm64Main by getting {
+            dependencies {
+            }
+        }
+
+        val linuxMain by getting {
+            dependsOn(commonMain)
+
+            linuxX64Main.dependsOn(this)
+            linuxArm64Main.dependsOn(this)
+
+            dependencies {
+            }
+        }
+
+        val linuxX64Test by getting {
+            dependencies {
+                dependsOn(linuxX64Main)
+            }
+        }
+
+        val linuxArm64Test by getting {
+            dependencies {
+                dependsOn(linuxArm64Main)
+            }
+        }
+
+        val linuxTest by getting {
+            dependsOn(linuxMain)
+            dependsOn(commonTest)
+
+            linuxX64Test.dependsOn(this)
+            linuxArm64Test.dependsOn(this)
+
+            dependencies {
+            }
+        }
+
+        val mingwX64Main by getting {
+            dependencies {
+            }
+        }
+
+        val mingwMain by getting {
+            dependsOn(commonMain)
+
+            mingwX64Main.dependsOn(this)
+
+            dependencies {
+            }
+        }
+
+        val mingwX64Test by getting {
+            dependencies {
+                dependsOn(mingwX64Main)
+            }
+        }
+
+        val mingwTest by getting {
+            dependsOn(mingwMain)
+            dependsOn(commonTest)
+
+            mingwX64Test.dependsOn(this)
+
+            dependencies {
+            }
+        }
+
         val appleMain by getting {
             dependsOn(commonMain)
+
+            dependencies {
+            }
         }
 
         val appleTest by getting {
             dependsOn(appleMain)
             dependsOn(commonTest)
+
+            dependencies {
+            }
+        }
+
+        val macosX64Main by getting {
+            dependencies {
+            }
+        }
+
+        val macosArm64Main by getting {
+            dependencies {
+            }
+        }
+
+        val macosMain by getting {
+            dependsOn(appleMain)
+
+            macosX64Main.dependsOn(this)
+            macosArm64Main.dependsOn(this)
+
+            dependencies {
+            }
+        }
+
+        val macosX64Test by getting {
+            dependencies {
+                dependsOn(macosX64Main)
+            }
+        }
+
+        val macosArm64Test by getting {
+            dependencies {
+                dependsOn(macosArm64Main)
+            }
+        }
+
+        val macosTest by getting {
+            dependsOn(appleTest)
+
+            macosX64Test.dependsOn(this)
+            macosArm64Test.dependsOn(this)
+
+            dependencies {
+            }
         }
 
         val iosX64Main by getting {
@@ -218,6 +496,11 @@ kotlin {
 
 fun JavaVersion.getInt(): Int {
     return this.ordinal + 1
+}
+
+tasks.withType<Wrapper> {
+    gradleVersion = "8.0"
+    distributionType = Wrapper.DistributionType.ALL
 }
 
 android {
