@@ -3,10 +3,10 @@ package kmm.utils.library
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
-class AppleGreetingTest {
+class NativeGreetingTest {
 
     @Test
     fun testExample() {
-        assertTrue(Greeting().greet().contains("Apple"), "Check Apple is mentioned")
+        assertTrue(Greeting().greet().contains("Native"), "Check Native is mentioned")
     }
 }
